@@ -8,11 +8,9 @@ import LoginPage from './pages/LoginPage';
 import CallbackPage from './pages/CallbackPage';
 import NavigationBar from './components/NavigationBar';
 
-// Компонент для рендеринга навигации на нужных страницах
 const Layout = ({ children }) => {
   const location = useLocation();
   const showNavigation = !['/login', '/code_callback'].includes(location.pathname);
-
   return (
     <>
       {children}
@@ -26,40 +24,12 @@ function App() {
     <Router>
       <AuthProvider>
       <Routes>
-        <Route path="/" element={<LoginPage />} /> {/* Убрано перенаправление на /login */}
+        <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/search"
-          element={
-            <Layout>
-              <Home />
-            </Layout>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <Layout>
-              <ProfilePage />
-            </Layout>
-          }
-        />
-        <Route
-          path="/edit-profile"
-          element={
-            <Layout>
-              <EditProfilePage />
-            </Layout>
-          }
-        />
-        <Route
-          path="/swipes"
-          element={
-            <Layout>
-              <SwipesPage />
-            </Layout>
-          }
-        />
+        <Route path="/search" element={<Layout> <Home /> </Layout>}/>
+        <Route path="/profile" element={<Layout> <ProfilePage /> </Layout>}/>
+        <Route path="/edit-profile" element={<Layout> <EditProfilePage /></Layout>}/>
+        <Route path="/swipes" element={<Layout> <SwipesPage /> </Layout>}/>
         <Route path="/code_callback" element={<CallbackPage />} />
       </Routes>
       </AuthProvider>
