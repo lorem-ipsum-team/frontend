@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from '../assets/images/search-icon.svg';
 import ProfileIcon from '../assets/images/profile-icon.svg';
-import SettingsIcon from '../assets/images/settings-icon.svg';
+import SwipesIcon from '../assets/images/heart-icon.svg';
 
 const NavigationBar = () => {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ const NavigationBar = () => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_4px_rgba(0,0,0,0.1)] flex justify-around py-2 z-5 border-t border-gray-200">
       <button
-        onClick={(e) => handleNavigation('/', e)}
+        onClick={(e) => handleNavigation('/search', e)}
         className={`flex flex-col items-center p-2 rounded-full ${activeTab === 'search' ? 'bg-[#66CC99] text-white' : 'text-gray-500'}`}
       >
         <img src={SearchIcon} alt="Search" className="w-6 h-6" />
@@ -39,7 +39,7 @@ const NavigationBar = () => {
         onClick={(e) => handleNavigation('/swipes', e)}
         className={`flex flex-col items-center p-2 rounded-full ${activeTab === 'swipes' ? 'bg-[#66CC99] text-white' : 'text-gray-500'}`}
       >
-        <img src={SettingsIcon} alt="Swipes" className="w-6 h-6" />
+        <img src={SwipesIcon} alt="Swipes" className="w-6 h-6" />
       </button>
     </nav>
   );

@@ -64,7 +64,7 @@ const ProfilePage = () => {
         tags: tagsData.map(tag => ({
           id: tag.id,
           user_id: tag.user_id,
-          name: tag.value, // Маппим value в name
+          name: tag.value,
         })) || [],
       };
     } catch (error) {

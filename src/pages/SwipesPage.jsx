@@ -10,7 +10,7 @@ const SwipesPage = () => {
 
   // Загрузка мэтчей
   const fetchMatches = async () => {
-    const authToken = localStorage.getItem('authToken');
+    const authToken = sessionStorage.getItem('authToken');
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/matches?page=0&limit=4`, {
         headers: {
@@ -80,7 +80,7 @@ const SwipesPage = () => {
 
   // Загрузка свайпов
   const fetchSwipes = async () => {
-    const authToken = localStorage.getItem('authToken');
+    const authToken = sessionStorage.getItem('authToken');
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/swipes?page=0&limit=4`, {
         headers: {
@@ -150,7 +150,7 @@ const SwipesPage = () => {
 
   // Обработка свайпа (оценка)
   const handleSwipe = async (targetId, like) => {
-    const authToken = localStorage.getItem('authToken');
+    const authToken = sessionStorage.getItem('authToken');
     try {
       await axios.post(`${process.env.REACT_APP_API_URL}/swipes`, {
         targetId,
@@ -231,27 +231,26 @@ const SwipesPage = () => {
         <div className="flex justify-center px-0 py-2">
           <span className="text-white font-bold text-xl">Мои связи</span>
         </div>
-        <div className="flex justify-center gap-4 py-2 bg-black">
-          <button
-            onClick={() => setActiveTab('matches')}
-            className={`px-4 py-1 rounded-full text-sm font-semibold ${
-              activeTab === 'matches' ? 'bg-white text-black' : 'bg-black text-white border border-white'
-            }`}
-          >
-            Мэтчи
-          </button>
-          <button
-            onClick={() => setActiveTab('swipes')}
-            className={`px-4 py-1 rounded-full text-sm font-semibold ${
-              activeTab === 'swipes' ? 'bg-white text-black' : 'bg-black text-white border border-white'
-            }`}
-          >
-            Кому я нравлюсь
-          </button>
-        </div>
       </header>
 
-      <div className="mt-20" />
+      <div className="mt-14" />
+
+      <div className="flex justify-center gap-4 py-2 w-[90%] sm:w-[80%] md:w-[500px] max-w-[500px] mx-auto">
+        <button
+          onClick={() => setActiveTab('matches')}
+          className={`px-4 py-1 rounded-full text-sm font-semibold ${activeTab === 'matches' ? 'bg-black text-white' : 'bg-white text-black border border-black'
+            }`}
+        >
+          Мэтчи
+        </button>
+        <button
+          onClick={() => setActiveTab('swipes')}
+          className={`px-4 py-1 rounded-full text-sm font-semibold ${activeTab === 'swipes' ? 'bg-black text-white' : 'bg-white text-black border border-black'
+            }`}
+        >
+          Кому я нравлюсь
+        </button>
+      </div>
 
       <div className="w-[90%] sm:w-[80%] md:w-[500px] max-w-[500px] mx-auto mt-4 space-y-6">
         {activeTab === 'matches' && (
@@ -266,7 +265,6 @@ const SwipesPage = () => {
                       src={user.photos[0].url}
                       alt={user.name}
                       className="absolute top-0 left-0 w-full h-full object-cover bg-gray-300 rounded-t-lg"
-                      
                     />
                   </div>
                 ) : (
@@ -277,7 +275,8 @@ const SwipesPage = () => {
 
                 <div className="p-4 sm:p-6">
                   <h2 className="text-lg sm:text-xl font-bold">
-                    {user.name}, {user.gender === 'MALE' ? 'М' : user.gender === 'FEMALE' ? 'Ж' : user.gender}, {user.age || '20'} лет, {user.jung_result || 'INTP'}
+                    {user.name}, {user.gender === 'MALE' ? 'М' : user.gender === 'FEMALE' ? 'Ж' : user.gender},{' '}
+                    {user.age || '20'} лет, {user.jung_result || 'INTP'}
                   </h2>
                   <p className="text-gray-600 mt-2 text-sm sm:text-base">
                     {user.about_myself || 'Нет описания'}
@@ -285,10 +284,7 @@ const SwipesPage = () => {
                   {user.tags && user.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {user.tags.map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="bg-gray-200 rounded-[15px] px-3 py-1 text-gray-600 text-sm"
-                        >
+                        <span key={tag.id} className="bg-gray-200 rounded-[15px] px-3 py-1 text-gray-600 text-sm">
                           {tag.name}
                         </span>
                       ))}
@@ -322,7 +318,8 @@ const SwipesPage = () => {
 
                 <div className="p-4 sm:p-6">
                   <h2 className="text-lg sm:text-xl font-bold">
-                    {user.name}, {user.gender === 'MALE' ? 'М' : user.gender === 'FEMALE' ? 'Ж' : user.gender}, {user.age || '20'} лет, {user.jung_result || 'INTP'}
+                    {user.name}, {user.gender === 'MALE' ? 'М' : user.gender === 'FEMALE' ? 'Ж' : user.gender},{' '}
+                    {user.age || '20'} лет, {user.jung_result || 'INTP'}
                   </h2>
                   <p className="text-gray-600 mt-2 text-sm sm:text-base">
                     {user.about_myself || 'Нет описания'}
@@ -330,10 +327,7 @@ const SwipesPage = () => {
                   {user.tags && user.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {user.tags.map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="bg-gray-200 rounded-[15px] px-3 py-1 text-gray-600 text-sm"
-                        >
+                        <span key={tag.id} className="bg-gray-200 rounded-[15px] px-3 py-1 text-gray-600 text-sm">
                           {tag.name}
                         </span>
                       ))}
@@ -353,12 +347,7 @@ const SwipesPage = () => {
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                   <button

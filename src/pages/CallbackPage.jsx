@@ -1,18 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-
-const decodeToken = (token) => {
-  try {
-    const payload = token.split('.')[1];
-    const decodedPayload = atob(payload);
-    const parsedPayload = JSON.parse(decodedPayload);
-    return parsedPayload.sub || parsedPayload.id || parsedPayload.user_id;
-  } catch (error) {
-    console.error('Ошибка при декодировании токена:', error.message);
-    return null;
-  }
-};
+import { useAuth } from '../context/AuthContext';
 
 const createOrCheckUserProfile = async (userId, token) => {
   const headers = {
@@ -21,7 +10,7 @@ const createOrCheckUserProfile = async (userId, token) => {
   };
   try {
     const createUrl = `${process.env.REACT_APP_API_URL}/users`;
-    const userData = { id: userId, name: "Имя", surname: "Фамилия" };
+    const userData = { id: userId, name: 'Имя', surname: 'Фамилия' };
     await axios.post(createUrl, userData, { headers });
     console.log('Профиль успешно создан для userId:', userId);
     return true;
@@ -38,30 +27,10 @@ const createOrCheckUserProfile = async (userId, token) => {
   }
 };
 
-const refreshToken = async (refreshToken) => {
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-  try {
-    const refreshUrl = `${process.env.REACT_APP_API_URL}/auth/refresh?refresh_token=${encodeURIComponent(refreshToken)}`;
-    const response = await axios.post(refreshUrl, null, { headers });
-    const tokens = response.data;
-    sessionStorage.setItem('authToken', tokens.access_token);
-    sessionStorage.setItem('refreshToken', tokens.refresh_token || '');
-    sessionStorage.setItem('tokenExpiresIn', tokens.expires_in || 0);
-    sessionStorage.setItem('refreshTokenExpiresIn', tokens.refresh_expires_in || 0);
-    return true;
-  } catch (error) {
-    console.error('Ошибка при обновлении токена:', error.message);
-    sessionStorage.clear();
-    window.location.href = '/login';
-    return false;
-  }
-};
-
 const CallbackPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { decodeToken } = useAuth();
   const [error, setError] = useState(null);
   const isProcessed = useRef(false);
 
@@ -92,18 +61,6 @@ const CallbackPage = () => {
           if (!profileCreated) {
             throw new Error('Не удалось создать или проверить профиль');
           }
-
-          const accessExpiresIn = tokens.expires_in * 1000;
-          setTimeout(() => {
-            const refreshTokenValue = sessionStorage.getItem('refreshToken');
-            if (refreshTokenValue) {
-              refreshToken(refreshTokenValue);
-            } else {
-              console.error('Refresh token отсутствует');
-              navigate('/login');
-            }
-          }, accessExpiresIn * 0.75);
-
           navigate('/edit-profile');
         } else {
           throw new Error('Не удалось извлечь userId из токена');
@@ -115,7 +72,7 @@ const CallbackPage = () => {
     };
 
     handleCallback();
-  }, [navigate, location]);
+  }, [navigate, location, decodeToken]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">

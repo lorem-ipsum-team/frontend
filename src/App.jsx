@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import Home from './pages/Home';
 import ProfilePage from './pages/ProfilePage';
 import EditProfilePage from './pages/EditProfilePage';
@@ -23,11 +24,12 @@ const Layout = ({ children }) => {
 function App() {
   return (
     <Router>
+      <AuthProvider>
       <Routes>
-        <Route path="/" element={<Home />} /> {/* Убрано перенаправление на /login */}
+        <Route path="/" element={<LoginPage />} /> {/* Убрано перенаправление на /login */}
         <Route path="/login" element={<LoginPage />} />
         <Route
-          path="/home"
+          path="/search"
           element={
             <Layout>
               <Home />
@@ -51,7 +53,7 @@ function App() {
           }
         />
         <Route
-          path="/settings"
+          path="/swipes"
           element={
             <Layout>
               <SwipesPage />
@@ -60,6 +62,7 @@ function App() {
         />
         <Route path="/code_callback" element={<CallbackPage />} />
       </Routes>
+      </AuthProvider>
     </Router>
   );
 }

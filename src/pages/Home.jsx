@@ -18,11 +18,9 @@ const Home = () => {
     }
 
     try {
-      // Логируем URL для отладки
       const recommendationUrl = `${process.env.REACT_APP_API_URL}/api/v1/recommend/fetch?limit=${limit}`;
       console.log('Запрос рекомендаций по URL:', recommendationUrl);
 
-      // Получаем рекомендации (список ID пользователей)
       const recommendationsResponse = await axios.get(recommendationUrl, {
         headers: {
           'Content-Type': 'application/json',
@@ -31,10 +29,9 @@ const Home = () => {
       });
       const userIds = recommendationsResponse.data.users || [];
 
-      // Запрашиваем данные каждого пользователя
       const userPromises = userIds.map(async (id) => {
         try {
-          const userResponse = await axios.get(`/users/${id}`, {
+          const userResponse = await axios.get(`${process.env.REACT_APP_API_URL}/users/${id}`, {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${authToken}`,
@@ -42,10 +39,9 @@ const Home = () => {
           });
           const userData = userResponse.data;
 
-          // Запрашиваем фото пользователя
           let photosData = [];
           try {
-            const photosResponse = await axios.get(`/users/${id}/photos`, {
+            const photosResponse = await axios.get(`${process.env.REACT_APP_API_URL}/users/${id}/photos`, {
               headers: {
                 'Authorization': `Bearer ${authToken}`,
               },
@@ -58,11 +54,7 @@ const Home = () => {
           // Запрашиваем теги пользователя
           let tagsData = [];
           try {
-            const tagsResponse = await axios.get(`/users/${id}/tags`, {
-              headers: {
-                'Authorization': `Bearer ${authToken}`,
-              },
-            });
+            const tagsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/users/${id}/tags`, {});
             tagsData = tagsResponse.data || [];
           } catch (tagError) {
             console.warn(`Не удалось загрузить теги для пользователя ${id}:`, tagError.message);
@@ -116,7 +108,7 @@ const Home = () => {
     }
 
     try {
-      await axios.post(`/swipes`, {
+      await axios.post(`${process.env.REACT_APP_API_URL}/swipes`, {
         targetId,
         like,
       }, {
