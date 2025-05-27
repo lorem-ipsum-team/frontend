@@ -8,9 +8,11 @@ import LoginPage from './pages/LoginPage';
 import CallbackPage from './pages/CallbackPage';
 import NavigationBar from './components/NavigationBar';
 
+
 const Layout = ({ children }) => {
   const location = useLocation();
   const showNavigation = !['/login', '/code_callback'].includes(location.pathname);
+
   return (
     <>
       {children}

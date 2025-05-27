@@ -28,24 +28,18 @@ async function fetchData(userId) {
     const data = userResponse.data;
     const photos = data.photos || [];
     const tags = data.tags || [];
-
-    // Базовый URL для хранилища
-
-    // Форматируем primary_photo, добавляя baseUrl, если это относительный путь
     const primaryPhotoUrl = data.primary_photo;
 
-    // Форматируем URL фотографий
     const formattedPhotos = photos.map(photo => ({
       id: photo.id,
       url: photo.url,
     }));
 
-    // Определяем ID основной фотографии, сравнивая полный URL primary_photo с photos[i].url
     const primaryPhotoId = formattedPhotos.find(photo => photo.url === primaryPhotoUrl)?.id || null;
 
     return {
       ...data,
-      primary_photo: primaryPhotoUrl, // Обновляем primary_photo с полным URL
+      primary_photo: primaryPhotoUrl,
       primaryPhotoId,
       photos: formattedPhotos,
       tags: tags.map(tag => ({ id: tag.id, user_id: tag.user_id, name: tag.value })),
@@ -58,6 +52,7 @@ async function fetchData(userId) {
     throw error;
   }
 }
+
 const EditProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,9 +79,6 @@ const EditProfilePage = () => {
   const [userId, setUserId] = useState(null);
   const [geoData, setGeoData] = useState(null);
   const [geoError, setGeoError] = useState(null);
-  const [manualLatitude, setManualLatitude] = useState('');
-  const [manualLongitude, setManualLongitude] = useState('');
-  const [showManualInput, setShowManualInput] = useState(false);
 
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
@@ -101,6 +93,7 @@ const EditProfilePage = () => {
     if (!id) {
       setError('Не удалось определить ID пользователя из токена.');
       setIsLoading(false);
+      navigate('/login');
       return;
     }
     setUserId(id);
@@ -110,6 +103,9 @@ const EditProfilePage = () => {
     if (!birthDate || !/^\d{2}\.\d{2}\.\d{4}$/.test(birthDate)) return '';
     const [day, month, year] = birthDate.split('.').map(Number);
     const birth = new Date(year, month - 1, day);
+    if (isNaN(birth.getTime()) || birth.getFullYear() !== year || birth.getMonth() !== month - 1 || birth.getDate() !== day) {
+      return '';
+    }
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
@@ -126,7 +122,7 @@ const EditProfilePage = () => {
   const uploadPhoto = async (file) => {
     const token = sessionStorage.getItem('authToken');
     if (!token) {
-      alert('Токен отсутствует. Пожалуйста, авторизуйтесь снова.');
+      navigate('/login');
       return null;
     }
 
@@ -164,7 +160,7 @@ const EditProfilePage = () => {
 
     const token = sessionStorage.getItem('authToken');
     if (!token) {
-      alert('Токен отсутствует. Пожалуйста, авторизуйтесь снова.');
+      navigate('/login');
       return;
     }
 
@@ -194,7 +190,7 @@ const EditProfilePage = () => {
   const handleRemoveTag = async (tagId) => {
     const token = sessionStorage.getItem('authToken');
     if (!token) {
-      alert('Токен отсутствует. Пожалуйста, авторизуйтесь снова.');
+      navigate('/login');
       return;
     }
 
@@ -230,7 +226,7 @@ const EditProfilePage = () => {
     const photoId = formData.photos[currentImageIndex].id;
     const token = sessionStorage.getItem('authToken');
     if (!token) {
-      alert('Токен отсутствует. Пожалуйста, авторизуйтесь снова.');
+      navigate('/login');
       return;
     }
 
@@ -293,6 +289,19 @@ const EditProfilePage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'birthDate') {
+      if (value && !/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
+        setError('Дата рождения должна быть в формате ДД.ММ.ГГГГ');
+        return;
+      }
+      const [day, month, year] = value.split('.').map(Number);
+      const date = new Date(year, month - 1, day);
+      if (isNaN(date.getTime()) || date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        setError('Некорректная дата рождения');
+        return;
+      }
+      setError(null);
+    }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -310,7 +319,7 @@ const EditProfilePage = () => {
     if (!formData.photos.length) return;
     const token = sessionStorage.getItem('authToken');
     if (!token) {
-      alert('Токен отсутствует. Пожалуйста, авторизуйтесь снова.');
+      navigate('/login');
       return;
     }
     const photoId = formData.photos[currentImageIndex].id;
@@ -343,18 +352,21 @@ const EditProfilePage = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setGeoData({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-          setShowManualInput(false);
+          const { latitude, longitude } = position.coords;
+          setGeoData({ latitude, longitude });
+          console.log('Геолокация успешно получена:', { latitude, longitude });
         },
         (error) => {
-          setGeoError('Не удалось получить геолокацию: ' + error.message + '. Попробуйте снова или введите вручную.');
-          setShowManualInput(true);
+          const errorMessage = `Не удалось получить геолокацию: ${error.message}`;
+          setGeoError(errorMessage);
+          console.error(errorMessage, error); // Логируем ошибку в консоль
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
-      setGeoError('Геолокация не поддерживается вашим устройством. Введите координаты вручную.');
-      setShowManualInput(true);
+      const errorMessage = 'Геолокация не поддерживается вашим устройством.';
+      setGeoError(errorMessage);
+      console.error(errorMessage); // Логируем ошибку в консоль
     }
   };
 
@@ -364,17 +376,26 @@ const EditProfilePage = () => {
     setIsSaving(true);
     const token = sessionStorage.getItem('authToken');
     if (!token) {
-      alert('Токен отсутствует. Пожалуйста, авторизуйтесь снова.');
+      navigate('/login');
       setIsSaving(false);
       return;
     }
 
     try {
-      const coordsToSend = geoData || (manualLatitude && manualLongitude ? { latitude: parseFloat(manualLatitude), longitude: parseFloat(manualLongitude) } : null);
-      if (coordsToSend) {
-        await axios.post(`${process.env.REACT_APP_API_URL}/geo`, coordsToSend, {
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        });
+      if (geoData) {
+        try {
+          await axios.post(
+            `${process.env.REACT_APP_API_URL}/geo`,
+            geoData,
+            {
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            }
+          );
+          console.log('Геолокация успешно отправлена:', geoData);
+        } catch (geoError) {
+          console.error('Ошибка при отправке геолокации:', geoError.message);
+          alert('Не удалось отправить геолокацию, но профиль будет сохранен.');
+        }
       }
 
       const updatedAge = calculateAge(formData.birthDate);
@@ -383,15 +404,31 @@ const EditProfilePage = () => {
         surname: formData.surname,
         gender: formData.gender === 'М' ? 'MALE' : 'FEMALE',
         birth_date: formatDateToISO(formData.birthDate),
-        //    birth_date: formData.birthDate,
-        about_myself: formData.description,
+        about_myself: formData.description, // Убедимся, что отправляем description как about_myself
         jung_result: formData.personality,
         jung_last_attempt: new Date().toISOString(),
       };
-      await axios.patch(`${process.env.REACT_APP_API_URL}/users/${userId}/profile`, apiData, {
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      });
-      const updatedData = { ...formData, age: updatedAge !== '' ? updatedAge : formData.age };
+
+      console.log('Отправляем данные на сервер:', apiData); // Логирование для отладки
+
+      const response = await axios.patch(
+        `${process.env.REACT_APP_API_URL}/users/${userId}/profile`,
+        apiData,
+        {
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        }
+      );
+
+      console.log('Ответ сервера после PATCH:', response.data); // Логирование ответа сервера
+
+      const updatedData = {
+        ...formData,
+        age: updatedAge !== '' ? updatedAge : formData.age,
+        about_myself: formData.description, // Явно задаем about_myself
+      };
+
+      console.log('Сохраняем в sessionStorage:', updatedData); // Логирование данных в sessionStorage
+
       sessionStorage.setItem('updatedUser', JSON.stringify(updatedData));
       navigate('/profile', { state: { updatedUser: updatedData } });
     } catch (error) {
@@ -413,93 +450,309 @@ const EditProfilePage = () => {
 
   if (isLoading) return <div className="min-h-screen bg-white flex items-center justify-center">Загрузка...</div>;
 
+
   return (
     <div className="min-h-screen bg-white flex flex-col pb-14">
-      <header className="fixed top-0 left-0 right-0 bg-black z-50"><div className="flex justify-center px-4 py-2"><span className="text-white font-bold text-xl">Мой профиль</span></div></header>
-      <div className="mt-10" />
-      {error && <div className="w-[90%] max-w-[500px] mx-auto text-red-500 text-sm mb-2">{error}</div>}
-      {geoError && <div className="w-[90%] max-w-[500px] mx-auto text-orange-500 text-sm mb-2">{geoError}</div>}
-      {geoData && <div className="w-[90%] max-w-[500px] mx-auto text-green-500 text-sm mb-2">Геолокация: Широта {geoData.latitude}, Долгота {geoData.longitude}</div>}
-      <div className="w-[90%] max-w-[500px] mx-auto flex flex-col gap-2 mb-4">
-        <button onClick={handleShareGeo} className="bg-blue-500 text-white px-4 py-2 border-2 border-black rounded-[15px] flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          Поделиться геолокацией
-        </button>
-        {showManualInput && (
-          <>
-            <div><label className="block text-gray-600 text-sm mb-1">Широта:</label><input type="number" value={manualLatitude} onChange={(e) => setManualLatitude(e.target.value)} className="w-full border-2 border-black rounded-[15px] p-2 text-black" placeholder="Широта" /></div>
-            <div><label className="block text-gray-600 text-sm mb-1">Долгота:</label><input type="number" value={manualLongitude} onChange={(e) => setManualLongitude(e.target.value)} className="w-full border-2 border-black rounded-[15px] p-2 text-black" placeholder="Долгота" /></div>
-          </>
-        )}
-      </div>
-      <div className="relative w-full max-w-[500px] mx-auto">
+      <header className="fixed top-0 left-0 right-0 bg-black z-50">
+        <div className="flex justify-center px-4 py-2">
+          <span className="text-white font-bold text-xl">Мой профиль</span>
+        </div>
+      </header>
+      <div className="relative w-full max-w-[500px] mx-auto mt-12">
         <div className="relative w-full pt-[100%] bg-gray-300">
           <div className="absolute top-2 right-2 z-20 flex gap-2">
-            <button onClick={() => document.getElementById('photoInput').click()} className="bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <button
+              onClick={() => document.getElementById('photoInput').click()}
+              className="bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
             </button>
             {formData.photos.length > 0 && (
-              <button onClick={handleRemovePhoto} className="bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              <button
+                onClick={handleRemovePhoto}
+                className="bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
               </button>
             )}
             {formData.photos.length > 0 && (
               <button
                 onClick={handleSetPrimaryPhoto}
-                className={`bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center ${formData.photos[currentImageIndex].id === formData.primaryPhotoId ? 'bg-green-500' : ''}`}
+                className={`bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center ${formData.photos[currentImageIndex].id === formData.primaryPhotoId ? 'bg-green-500' : ''
+                  }`}
                 disabled={formData.photos[currentImageIndex].id === formData.primaryPhotoId}
-                title={formData.photos[currentImageIndex].id === formData.primaryPhotoId ? 'Это основная фотография' : 'Назначить основной'}
+                title={
+                  formData.photos[currentImageIndex].id === formData.primaryPhotoId
+                    ? 'Это основная фотография'
+                    : 'Назначить основной'
+                }
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               </button>
             )}
           </div>
           {formData.photos.length > 0 ? (
             <>
-              <img src={formData.photos[currentImageIndex].url} alt="Profile" className="absolute top-0 left-0 w-full h-full object-cover" />
+              <img
+                src={formData.photos[currentImageIndex].url}
+                alt="Profile"
+                className="absolute top-0 left-0 w-full h-full object-cover"
+              />
               {formData.photos.length > 1 && (
                 <>
-                  <button onClick={handlePrevImage} className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  <button
+                    onClick={handlePrevImage}
+                    className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
                   </button>
-                  <button onClick={handleNextImage} className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex justify-center items-center"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
                 </>
               )}
             </>
           ) : (
-            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center"><span className="text-gray-600 text-sm">Нет фото</span></div>
+            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+              <span className="text-gray-600 text-sm">Нет фото</span>
+            </div>
           )}
           <input id="photoInput" type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
         </div>
         <div className="absolute bottom-0 w-full border-b-2 border-black" />
         <div className="absolute bottom-0 right-[35px] transform translate-y-1/2 z-10">
-          <button onClick={handleSave} disabled={isSaving} className={`rounded-full w-10 h-10 flex justify-center items-center border-2 border-black ${isSaving ? 'bg-gray-400' : 'bg-green-500'}`}>
-            {isSaving ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`rounded-full w-10 h-10 flex justify-center items-center border-2 border-black ${isSaving ? 'bg-gray-400' : 'bg-green-600'
+              }`}
+          >
+            {isSaving ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
-      <div className="w-[90%] max-w-[500px] mx-auto flex flex-col gap-2 mt-1">
-        <div className="flex flex-col text-left"><p className="text-gray-600 text-sm">Создано: {formData.createdAt}</p></div>
+
+      <div className="w-[90%] max-w-[500px] mx-auto flex flex-col gap-2 mt-2">
+        <div className="flex flex-col text-left">
+          <p className="text-gray-600 text-sm">Создано: {formData.createdAt}</p>
+        </div>
+        <div className="w-[100%] max-w-[500px] mx-auto flex flex-col gap-2 mt-4">
+          <button
+            onClick={handleShareGeo}
+            className="bg-blue-600 text-white px-4 py-2 border-2 border-black rounded-[15px] flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Поделиться геолокацией
+          </button>
+        </div>
         <div className="flex flex-col gap-2 mt-2">
-          <div><label className="block text-gray-600 text-sm mb-1">Имя</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full border-2 border-black rounded-[15px] p-2 text-black" placeholder="Имя" /></div>
-          <div><label className="block text-gray-600 text-sm mb-1">Фамилия</label><input type="text" name="surname" value={formData.surname} onChange={handleChange} className="w-full border-2 border-black rounded-[15px] p-2 text-black" placeholder="Фамилия" /></div>
+          <div>
+            <label className="block text-gray-600 text-sm mb-1">Имя</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className="w-full border-2 border-black rounded-[15px] p-2 text-black"
+              placeholder="Имя"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-600 text-sm mb-1">Фамилия</label>
+            <input
+              type="text"
+              name="surname"
+              value={formData.surname}
+              onChange={handleChange}
+              className="w-full border-2 border-black rounded-[15px] p-2 text-black"
+              placeholder="Фамилия"
+            />
+          </div>
           <div className="flex gap-4">
-            <div className="flex-1"><label className="block text-gray-600 text-sm mb-1">Пол:</label><div className="flex gap-4"><label className="flex items-center"><input type="radio" name="gender" value="М" checked={formData.gender === 'М'} onChange={handleChange} className="mr-2" />М</label><label className="flex items-center"><input type="radio" name="gender" value="Ж" checked={formData.gender === 'Ж'} onChange={handleChange} className="mr-2" />Ж</label></div></div>
-            <div className="flex-1"><label className="block text-gray-600 text-sm mb-1">Дата рождения:</label><input type="text" name="birthDate" value={formData.birthDate} onChange={handleChange} className="w-full border-2 border-black rounded-[15px] p-2 text-black" placeholder="ДД.ММ.ГГГГ" />{age && <p className="text-gray-600 text-sm mt-1">Возраст: {age} лет</p>}</div>
+            <div className="flex-1">
+              <label className="block text-gray-600 text-sm mb-1">Пол:</label>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="М"
+                    checked={formData.gender === 'М'}
+                    onChange={handleChange}
+                    className="mr-2"
+                  />
+                  М
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value="Ж"
+                    checked={formData.gender === 'Ж'}
+                    onChange={handleChange}
+                    className="mr-2"
+                  />
+                  Ж
+                </label>
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-gray-600 text-sm mb-1">Дата рождения:</label>
+              <input
+                type="text"
+                name="birthDate"
+                value={formData.birthDate}
+                onChange={handleChange}
+                className="w-full border-2 border-black rounded-[15px] p-2 text-black"
+                placeholder="ДД.ММ.ГГГГ"
+              />
+              {age && <p className="text-gray-600 text-sm mt-1">Возраст: {age} лет</p>}
+            </div>
           </div>
-          <div><label className="block text-gray-600 text-sm mb-1">О себе</label><textarea name="description" value={formData.description} onChange={handleChange} className="w-full border-2 border-black rounded-[15px] p-2 text-black h-32 resize-none" placeholder="О себе" /></div>
+          <div>
+            <label className="block text-gray-600 text-sm mb-1">О себе</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              className="w-full border-2 border-black rounded-[15px] p-2 text-black h-32 resize-none"
+              placeholder="О себе"
+            ></textarea>
+          </div>
           <div className="flex gap-4 items-end">
-            <div className="flex-1"><label className="block text-gray-600 text-sm mb-1">Тип Юнга:</label><select name="personality" value={formData.personality} onChange={handleChange} className="w-full border-2 border-black rounded-[15px] p-2 text-black">{personalityTypes.map(type => <option key={type} value={type}>{type}</option>)}</select></div>
-            <button onClick={handleTestRedirect} className="bg-gray-200 text-gray-600 px-4 py-2 border-2 border-black rounded-[15px]">Тестирование</button>
+            <div className="flex-1">
+              <label className="block text-gray-600 text-sm mb-1">Тип Юнга:</label>
+              <select
+                name="personality"
+                value={formData.personality}
+                onChange={handleChange}
+                className="w-full border-2 border-black rounded-[15px] p-2 text-black"
+              >
+                {personalityTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={handleTestRedirect}
+              className="bg-gray-200 text-gray-600 px-4 py-2 border-2 border-black rounded-[15px]"
+            >
+              Тестирование
+            </button>
           </div>
-          <div><label className="block text-gray-600 text-sm mb-1">Теги:</label><div className="flex gap-2"><input type="text" value={newTag} onChange={(e) => setNewTag(e.target.value)} className="flex-1 border-2 border-black rounded-[15px] p-2 text-black" placeholder="Новый тег" /><button onClick={handleAddTag} className="bg-gray-200 text-gray-600 px-4 py-2 border-2 border-black rounded-[15px]">Добавить</button></div><div className="flex flex-wrap gap-2 mt-2">{formData.tags.map(tag => <div key={tag.id} className="flex items-center bg-gray-200 rounded-[15px] px-3 py-1"><span className="text-gray-600 text-sm">{tag.name}</span><button onClick={() => handleRemoveTag(tag.id)} className="ml-2 text-red-500 hover:text-red-700">×</button></div>)}</div></div>
+          <div>
+            <label className="block text-gray-600 text-sm mb-1">Теги:</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                className="flex-1 border-2 border-black rounded-[15px] p-2 text-black"
+                placeholder="Новый тег"
+              />
+              <button
+                onClick={handleAddTag}
+                className="bg-gray-200 text-gray-600 px-4 py-2 border-2 border-black rounded-[15px]"
+              >
+                Добавить
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.tags.map((tag) => (
+                <div key={tag.id} className="flex items-center bg-gray-200 rounded-[15px] px-3 py-1">
+                  <span className="text-gray-600 text-sm">{tag.name}</span>
+                  <button
+                    onClick={() => handleRemoveTag(tag.id)}
+                    className="ml-2 text-red-500 hover:text-red-700"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
       <div className="h-20" />
     </div>
   );
+
 };
 
 export default EditProfilePage;

@@ -9,7 +9,7 @@ const NavigationBar = () => {
 
   const getActiveTab = () => {
     if (location.pathname === '/' || location.pathname === '/home') return 'search';
-    if (location.pathname === '/profile' || location.pathname === '/edit-profile') return 'profile'; // Добавлен /edit-profile
+    if (location.pathname === '/profile' || location.pathname === '/edit-profile') return 'profile';
     if (location.pathname === '/swipes') return 'swipes';
     return 'search';
   };

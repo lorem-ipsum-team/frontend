@@ -1,10 +1,9 @@
-import { createContext, useContext, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { createContext, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import axios from 'axios';
 
 const AuthContext = createContext();
-// Функция декодирования токена (перенесена из CallbackPage)
+
 const decodeToken = (token) => {
   try {
     const payload = token.split('.')[1];
@@ -17,101 +16,99 @@ const decodeToken = (token) => {
   }
 };
 
-// Функция обновления токена (перенесена из CallbackPage)
 const refreshToken = async (refreshToken) => {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
   try {
     const refreshUrl = `${process.env.REACT_APP_API_URL}/auth/refresh?refresh_token=${encodeURIComponent(refreshToken)}`;
-    const response = await axios.post(refreshUrl, null, {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await axios.post(refreshUrl, null, { headers });
     const tokens = response.data;
     sessionStorage.setItem('authToken', tokens.access_token);
     sessionStorage.setItem('refreshToken', tokens.refresh_token || '');
     sessionStorage.setItem('tokenExpiresIn', tokens.expires_in || 0);
     sessionStorage.setItem('refreshTokenExpiresIn', tokens.refresh_expires_in || 0);
-    return tokens;
+    return true;
   } catch (error) {
     console.error('Ошибка при обновлении токена:', error.message);
+    if (error.response?.status === 401) {
+      console.error('Недействительный refresh_token');
+    }
     sessionStorage.clear();
-    return null;
+    return false;
   }
 };
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
-  // Функция для проверки и обновления токена
-  const setupTokenRefresh = useCallback(() => {
-    const authToken = sessionStorage.getItem('authToken');
-    const refreshTokenValue = sessionStorage.getItem('refreshToken');
-    const tokenExpiresIn = parseInt(sessionStorage.getItem('tokenExpiresIn'), 10);
+  useEffect(() => {
+    const setupTokenRefresh = () => {
+      const authToken = sessionStorage.getItem('authToken');
+      const refreshTokenValue = sessionStorage.getItem('refreshToken');
+      const tokenExpiresIn = parseInt(sessionStorage.getItem('tokenExpiresIn'), 10);
 
-    if (!authToken || !refreshTokenValue || !tokenExpiresIn) {
-      console.warn('Токены или время истечения отсутствуют. Перенаправление на логин.');
-      sessionStorage.clear();
-      navigate('/login');
-      return;
-    }
+      if (['/login', '/callback'].includes(window.location.pathname)) {
+        console.log('Пропускаем проверку токена для /login или /callback');
+        return;
+      }
 
-    const expiresInMs = tokenExpiresIn * 1000;
-    const refreshTime = expiresInMs * 0.75; // Обновляем за 25% до истечения
-    const timeUntilRefresh = refreshTime - Date.now();
-
-    const refresh = async () => {
-      const newTokens = await refreshToken(refreshTokenValue);
-      if (!newTokens) {
+      if (!authToken || !refreshTokenValue || !tokenExpiresIn) {
+        console.warn('Отсутствуют токены или данные об их сроке действия.');
+        sessionStorage.clear();
         navigate('/login');
         return;
       }
-      // Планируем следующее обновление
-      const newExpiresIn = newTokens.expires_in * 1000;
-      setTimeout(refresh, newExpiresIn * 0.75);
+
+      const refreshInterval = tokenExpiresIn * 1000 * 0.75;
+      console.log('Планируем обновление токена через:', refreshInterval / 1000, 'секунд');
+      const refreshTimeout = setTimeout(async () => {
+        const success = await refreshToken(refreshTokenValue);
+        if (!success) {
+          navigate('/login');
+        }
+      }, refreshInterval);
+
+      return () => clearTimeout(refreshTimeout);
     };
 
-    if (timeUntilRefresh > 0) {
-      setTimeout(refresh, timeUntilRefresh);
-    } else {
-      refresh();
-    }
+    setupTokenRefresh();
   }, [navigate]);
 
-  // Инициализация при монтировании
   useEffect(() => {
-    setupTokenRefresh();
-  }, [setupTokenRefresh]);
-
-  // Функция выхода
-  const logout = async () => {
-    const token = sessionStorage.getItem('authToken');
-    const refreshTokenValue = sessionStorage.getItem('refreshToken');
-
-    if (refreshTokenValue) {
-      try {
-        await axios.post(
-          `${process.env.REACT_APP_API_URL}/auth/logout`,
-          { refresh_token: refreshTokenValue },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.response?.status === 401) {
+          const refreshTokenValue = sessionStorage.getItem('refreshToken');
+          if (refreshTokenValue) {
+            const success = await refreshToken(refreshTokenValue);
+            if (success) {
+              error.config.headers.Authorization = `Bearer ${sessionStorage.getItem('authToken')}`;
+              return axios(error.config);
+            }
           }
-        );
-        console.log('Успешный выход из системы.');
-      } catch (error) {
-        console.error('Ошибка при выходе:', error.message);
+          sessionStorage.clear();
+          navigate('/login');
+        }
+        return Promise.reject(error);
       }
-    }
+    );
 
-    sessionStorage.clear();
-    navigate('/login');
-  };
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [navigate]);
 
   return (
-    <AuthContext.Provider value={{ decodeToken, logout }}>
+    <AuthContext.Provider value={{ decodeToken, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

@@ -10,7 +10,7 @@ const createOrCheckUserProfile = async (userId, token) => {
   };
   try {
     const createUrl = `${process.env.REACT_APP_API_URL}/users`;
-    const userData = { id: userId, name: 'Имя', surname: 'Фамилия' };
+    const userData = { id: userId, name: "Имя", surname: "Фамилия" };
     await axios.post(createUrl, userData, { headers });
     console.log('Профиль успешно создан для userId:', userId);
     return true;

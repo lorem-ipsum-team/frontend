@@ -8,9 +8,10 @@ const Home = () => {
   const [currentUserIndex, setCurrentUserIndex] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchRecommendations = useCallback(async (limit = 1) => {
+  const fetchRecommendations = useCallback(async (limit = 5) => {
     const authToken = sessionStorage.getItem('authToken');
     if (!authToken) {
       navigate('/login');
@@ -18,6 +19,7 @@ const Home = () => {
     }
 
     try {
+      setIsFetching(true);
       const recommendationUrl = `${process.env.REACT_APP_API_URL}/api/v1/recommend/fetch?limit=${limit}`;
       console.log('Запрос рекомендаций по URL:', recommendationUrl);
 
@@ -28,6 +30,14 @@ const Home = () => {
         },
       });
       const userIds = recommendationsResponse.data.users || [];
+
+      if (userIds.length === 0) {
+        setUsers([]);
+        setCurrentUserIndex(0);
+        setCurrentImageIndex(0);
+        setError(null);
+        return;
+      }
 
       const userPromises = userIds.map(async (id) => {
         try {
@@ -51,10 +61,13 @@ const Home = () => {
             console.warn(`Не удалось загрузить фото для пользователя ${id}:`, photoError.message);
           }
 
-          // Запрашиваем теги пользователя
           let tagsData = [];
           try {
-            const tagsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/users/${id}/tags`, {});
+            const tagsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/users/${id}/tags`, {
+              headers: {
+                'Authorization': `Bearer ${authToken}`,
+              },
+            });
             tagsData = tagsResponse.data || [];
           } catch (tagError) {
             console.warn(`Не удалось загрузить теги для пользователя ${id}:`, tagError.message);
@@ -81,18 +94,11 @@ const Home = () => {
       setCurrentImageIndex(0);
       setError(null);
     } catch (error) {
-      console.error('Ошибка загрузки рекомендаций:', error.message);
-      if (error.response) {
-        console.error('Ответ сервера:', error.response.status, error.response.data);
-        setError(`Не удалось загрузить рекомендации: ${error.response.data.message || error.message}`);
-      } else if (error.request) {
-        console.error('Возможная причина: CORS или сервер недоступен.');
-        setError('Не удалось загрузить рекомендации: проблема с подключением к серверу');
-      } else {
-        setError(`Не удалось загрузить рекомендации: ${error.message}`);
-      }
+      console.error('Ошибка загрузки рекомендаций:', error.response?.data || error.message);
+      setError(`Не удалось загрузить рекомендации: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsLoading(false);
+      setIsFetching(false);
     }
   }, [navigate]);
 
@@ -118,28 +124,21 @@ const Home = () => {
         },
       });
 
-      // Переходим к следующему пользователю
-      setCurrentUserIndex(prev => {
-        const nextIndex = prev + 1;
-        if (nextIndex >= users.length) {
-          // Если пользователи закончились, загружаем новые рекомендации
+      setUsers((prevUsers) => {
+        const updatedUsers = prevUsers.filter((_, index) => index !== currentUserIndex);
+        if (updatedUsers.length === 0) {
           fetchRecommendations();
-          return 0;
+          setCurrentUserIndex(0);
+          setCurrentImageIndex(0);
+          return [];
         }
-        return nextIndex;
+        setCurrentUserIndex(0);
+        setCurrentImageIndex(0);
+        return updatedUsers;
       });
-      setCurrentImageIndex(0);
     } catch (error) {
-      console.error('Ошибка при свайпе:', error.message);
-      if (error.response) {
-        console.error('Ответ сервера:', error.response.status, error.response.data);
-        alert(`Не удалось выполнить свайп: ${error.response.data.message || error.message}`);
-      } else if (error.request) {
-        console.error('Возможная причина: CORS или сервер недоступен.');
-        alert('Не удалось выполнить свайп: проблема с подключением к серверу');
-      } else {
-        alert(`Не удалось выполнить свайп: ${error.message}`);
-      }
+      console.error('Ошибка при свайпе:', error.response?.data || error.message);
+      alert(`Не удалось выполнить свайп: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -175,14 +174,22 @@ const Home = () => {
     );
   };
 
-  if (isLoading) {
+  if (isLoading || isFetching) {
     return <div className="min-h-screen bg-white flex items-center justify-center">Загрузка...</div>;
   }
 
-  if (error || users.length === 0) {
+  if (error) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center">
-        <p className="text-red-500">{error || 'Нет доступных пользователей для просмотра'}</p>
+        <p className="text-gray-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <p className="text-gray-600">Сейчас нет доступных анкет для оценки</p>
       </div>
     );
   }

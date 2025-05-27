@@ -1,30 +1,33 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { decodeToken } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [error, setError] = useState(null);
 
-  const decodeToken = (token) => {
-    try {
-      const payload = token.split('.')[1];
-      const decodedPayload = atob(payload);
-      const parsedPayload = JSON.parse(decodedPayload);
-      return parsedPayload.sub || parsedPayload.id || parsedPayload.user_id;
-    } catch (error) {
-      console.error('Ошибка при декодировании токена:', error.message);
-      return null;
+  const calculateAge = (birthDate) => {
+    if (!birthDate || !/^\d{2}\.\d{2}\.\d{4}$/.test(birthDate)) return '';
+    const [day, month, year] = birthDate.split('.').map(Number);
+    const birth = new Date(year, month - 1, day);
+    if (isNaN(birth.getTime())) return '';
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
     }
+    return age.toString();
   };
 
   const fetchData = async (userId, token) => {
     const userUrl = `${process.env.REACT_APP_API_URL}/users/${userId}`;
-
     try {
       const userResponse = await axios.get(userUrl, {
         headers: {
@@ -33,6 +36,7 @@ const ProfilePage = () => {
         },
       });
       const data = userResponse.data;
+      console.log('Данные с сервера:', data);
 
       let photosData = [];
       try {
@@ -69,6 +73,7 @@ const ProfilePage = () => {
       };
     } catch (error) {
       console.error('Ошибка запроса:', error.message);
+      setError(`Не удалось загрузить данные: ${error.response?.data?.message || error.message}`);
       return null;
     }
   };
@@ -78,20 +83,32 @@ const ProfilePage = () => {
       const token = sessionStorage.getItem('authToken');
       if (!token) {
         setError('Токен отсутствует. Пожалуйста, авторизуйтесь снова.');
+        navigate('/login');
         setIsLoading(false);
         return;
       }
 
       const userId = decodeToken(token);
       if (!userId) {
+        console.error('Невалидный токен');
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('refreshToken');
         setError('Не удалось определить ID пользователя из токена.');
+        navigate('/login');
         setIsLoading(false);
         return;
       }
 
       const { state } = location;
       if (state?.updatedUser) {
-        setUser(state.updatedUser);
+        console.log('Используем данные из location.state:', state.updatedUser); // Логирование для отладки
+        setUser({
+          ...state.updatedUser,
+          gender: state.updatedUser.gender === 'М' ? 'М' : state.updatedUser.gender === 'Ж' ? 'Ж' : state.updatedUser.gender || 'М',
+          age: state.updatedUser.birthDate ? calculateAge(state.updatedUser.birthDate) : state.updatedUser.age || '',
+          personality: state.updatedUser.personality || 'INTP',
+          about_myself: state.updatedUser.about_myself || state.updatedUser.description || '', // Учитываем оба поля
+        });
       } else {
         const serverData = await fetchData(userId, token);
         if (serverData) {
@@ -100,42 +117,33 @@ const ProfilePage = () => {
             gender: serverData.gender === 'MALE' ? 'М' : serverData.gender === 'FEMALE' ? 'Ж' : serverData.gender || 'М',
             age: serverData.birth_date ? calculateAge(new Date(serverData.birth_date).toLocaleDateString('ru-RU')) : '',
             personality: serverData.jung_result || 'INTP',
-            about_myself: serverData.about_myself || '',
+            about_myself: serverData.about_myself || '', // Убедимся, что поле берется с сервера
           });
         } else {
-          const savedData = localStorage.getItem('updatedUser');
-          setUser(savedData ? JSON.parse(savedData) : {
-            name: '',
-            gender: 'М',
-            age: '',
-            personality: 'INTP',
-            about_myself: '',
-            photos: [],
-            tags: [],
-          });
+          const savedData = sessionStorage.getItem('updatedUser');
+          setUser(
+            savedData
+              ? JSON.parse(savedData)
+              : {
+                  name: '',
+                  gender: 'М',
+                  age: '',
+                  personality: 'INTP',
+                  about_myself: '',
+                  photos: [],
+                  tags: [],
+                }
+          );
           setError('Не удалось загрузить данные с сервера. Используются сохранённые или дефолтные данные.');
         }
       }
       setIsLoading(false);
     };
 
-    const calculateAge = (birthDate) => {
-      if (!birthDate || !/^\d{2}\.\d{2}\.\d{4}$/.test(birthDate)) return '';
-      const [day, month, year] = birthDate.split('.').map(Number);
-      const birth = new Date(year, month - 1, day);
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-      }
-      return age.toString();
-    };
-
     loadData();
 
     const handleStorageChange = () => {
-      const savedData = localStorage.getItem('updatedUser');
+      const savedData = sessionStorage.getItem('updatedUser');
       if (savedData) {
         setUser(JSON.parse(savedData));
       }
@@ -143,7 +151,7 @@ const ProfilePage = () => {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [location]);
+  }, [location, navigate, decodeToken]);
 
   const handleEditToggle = () => {
     console.log('Navigating to edit-profile with user:', user);
@@ -151,14 +159,33 @@ const ProfilePage = () => {
   };
 
   const handlePrevImage = () => {
-    setCurrentImageIndex((prev) => (prev === 0 ? (user.photos.length - 1) : prev - 1));
+    setCurrentImageIndex((prev) => (prev === 0 ? user.photos.length - 1 : prev - 1));
   };
 
   const handleNextImage = () => {
     setCurrentImageIndex((prev) => (prev === user.photos.length - 1 ? 0 : prev + 1));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const refreshToken = sessionStorage.getItem('refreshToken');
+    if (refreshToken) {
+      try {
+        const logoutUrl = `${process.env.REACT_APP_API_URL}/auth/logout?refresh_token=${encodeURIComponent(refreshToken)}`;
+        await axios.post(logoutUrl, null, {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        });
+      } catch (error) {
+        console.error('Ошибка при логауте:', error.message);
+      }
+    } else {
+      console.warn('refreshToken отсутствует, пропускаем запрос на logout');
+    }
+
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('updatedUser');
     sessionStorage.clear();
     navigate('/login');
   };
@@ -191,7 +218,6 @@ const ProfilePage = () => {
                 src={user.photos[currentImageIndex]?.url}
                 alt="Profile"
                 className="absolute top-0 left-0 w-full h-full object-cover"
-                
               />
               {user.photos.length > 1 && (
                 <>
@@ -286,9 +312,14 @@ const ProfilePage = () => {
               ))}
             </div>
           )}
-          <a href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }} className="text-red-500 underline hover:text-red-700 mt-4 cursor-pointer">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="text-red-500 underline hover:text-red-700 mt-4 text-left text-base cursor-pointer bg-transparent border-none p-0"
+            aria-label="Выйти из аккаунта"
+          >
             Выйти
-          </a>
+          </button>
         </div>
       </div>
     </div>
