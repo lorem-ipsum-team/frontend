@@ -6,7 +6,8 @@ RUN npm ci
 
 COPY public ./public
 COPY src ./src
-
+ARG REACT_APP_AUTHORIZATION_URL
+ARG REACT_APP_API_URL
 RUN npm run build
 
 
