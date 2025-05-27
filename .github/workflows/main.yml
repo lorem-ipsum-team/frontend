@@ -6,8 +6,8 @@ on:
       - main
 
 env:
-  REACT_APP_AUTHORIZATION_URL: ${{ vars.REACT_APP_AUTHORIZATION_URL }}
-  REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL }}
+  authurl: ${{ vars.REACT_APP_AUTHORIZATION_URL }}
+  apiurl: ${{ vars.REACT_APP_API_URL }}
 
 jobs:
   dockerize:
@@ -27,7 +27,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Docker image
         run: |
-          docker build -t ghcr.io/${{ github.repository }}:${{ env.BUILD_DATE }}-${{ github.sha }} .
+          docker build --build-arg REACT_APP_AUTHORIZATION_URL=${{ env.authurl }} \
+          --build-arg REACT_APP_API_URL=${{ env.apiurl }} \
+          -t ghcr.io/${{ github.repository }}:${{ env.BUILD_DATE }}-${{ github.sha }} .
       - name: Push Docker image
         run: |
           docker push ghcr.io/${{ github.repository }}:${{ env.BUILD_DATE }}-${{ github.sha }}
