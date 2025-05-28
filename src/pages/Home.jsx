@@ -189,7 +189,7 @@ const Home = () => {
   if (users.length === 0) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center">
-        <p className="text-gray-600">Сейчас нет доступных анкет для оценки</p>
+        <p className="text-gray-600">Сейчас нет доступных анкет для оценки. Убедитесь что вы полностью заполнили профиль</p>
       </div>
     );
   }

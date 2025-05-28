@@ -15,7 +15,6 @@ const SwipesPage = () => {
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Функция для загрузки мэтчей
   const fetchMatches = async () => {
     const authToken = sessionStorage.getItem('authToken');
     if (!authToken) {
@@ -346,8 +345,8 @@ const SwipesPage = () => {
           Мэтчи
         </button>
         <button
-          onClick={() => setActiveTab('swipes')}
-          className={`px-4 py-1 rounded-full text-sm font-semibold ${activeTab === 'swipes' ? 'bg-black text-white' : 'bg-white text-black border border-black'}`}
+          onClick={() => setActiveTab('likes')}
+          className={`px-4 py-1 rounded-full text-sm font-semibold ${activeTab === 'likes' ? 'bg-black text-white' : 'bg-white text-black border border-black'}`}
         >
           Кому я нравлюсь
         </button>
@@ -356,7 +355,7 @@ const SwipesPage = () => {
       <div className="w-[90%] sm:w-[80%] md:w-[500px] max-w-[500px] mx-auto mt-4">
         {activeTab === 'matches' && (
           matches.length === 0 ? (
-            <p className="text-gray-500 text-center">У вас пока нет мэтчей</p>
+            <p className="text-gray-500 text-center">У вас пока нет мэтчей. Убедитесь что вы полностью заполнили профиль</p>
           ) : (
             <div className="relative w-[90%] sm:w-[80%] md:w-[500px] max-w-[500px] mx-auto">
               <div className="relative overflow-hidden">
@@ -408,7 +407,6 @@ const SwipesPage = () => {
                       ) : (
                         <div className="w-full pt-[100%] bg-gray-300 flex items-center justify-center rounded-t-lg">
                           <span className="text-gray-600 text-sm">Нет фотографий</span>
-                        Wrapper for matches navigation buttons
                         </div>
                       )}
 
@@ -480,9 +478,9 @@ const SwipesPage = () => {
           )
         )}
 
-        {activeTab === 'swipes' && (
+        {activeTab === 'likes' && (
           swipes.length === 0 ? (
-            <p className="text-gray-500 text-center">Пока никто не сделал свайп</p>
+            <p className="text-gray-500 text-center">Пока никто не сделал свайп. Убедитесь что вы полностью заполнили профиль</p>
           ) : (
             swipes.map((user, index) => (
               <div key={user.id} className="rounded-lg bg-white border border-gray-200 overflow-hidden mb-6">

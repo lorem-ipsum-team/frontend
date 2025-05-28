@@ -10,7 +10,7 @@ const NavigationBar = () => {
   const getActiveTab = () => {
     if (location.pathname === '/' || location.pathname === '/home') return 'search';
     if (location.pathname === '/profile' || location.pathname === '/edit-profile') return 'profile';
-    if (location.pathname === '/swipes') return 'swipes';
+    if (location.pathname === '/likes') return 'likes';
     return 'search';
   };
 
@@ -36,8 +36,8 @@ const NavigationBar = () => {
         <img src={ProfileIcon} alt="Profile" className="w-6 h-6" />
       </button>
       <button
-        onClick={(e) => handleNavigation('/swipes', e)}
-        className={`flex flex-col items-center p-2 rounded-full ${activeTab === 'swipes' ? 'bg-[#66CC99] text-white' : 'text-gray-500'}`}
+        onClick={(e) => handleNavigation('/likes', e)}
+        className={`flex flex-col items-center p-2 rounded-full ${activeTab === 'likes' ? 'bg-[#66CC99] text-white' : 'text-gray-500'}`}
       >
         <img src={SwipesIcon} alt="Swipes" className="w-6 h-6" />
       </button>

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Функция для декодирования JWT-токена и получения user_id
 const decodeToken = (token) => {
   try {
     const payload = token.split('.')[1];
@@ -15,7 +14,6 @@ const decodeToken = (token) => {
   }
 };
 
-// Функция для получения данных пользователя
 async function fetchData(userId) {
   const token = sessionStorage.getItem('authToken');
   if (!token) {
@@ -56,6 +54,7 @@ async function fetchData(userId) {
 const EditProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isGeoShared, setIsGeoShared] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [newTag, setNewTag] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -289,20 +288,35 @@ const EditProfilePage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setError(null);
+
     if (name === 'birthDate') {
-      if (value && !/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
-        setError('Дата рождения должна быть в формате ДД.ММ.ГГГГ');
-        return;
-      }
-      const [day, month, year] = value.split('.').map(Number);
-      const date = new Date(year, month - 1, day);
-      if (isNaN(date.getTime()) || date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-        setError('Некорректная дата рождения');
-        return;
-      }
-      setError(null);
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      return;
     }
-    setFormData(prev => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const validateBirthDate = (value) => {
+    if (!value) return true; // Пустое поле допустимо
+    if (!/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
+      setError('Дата рождения должна быть в формате ДД.ММ.ГГГГ');
+      return false;
+    }
+    const [day, month, year] = value.split('.').map(Number);
+    const date = new Date(year, month - 1, day);
+    if (
+      isNaN(date.getTime()) ||
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      setError('Некорректная дата рождения');
+      return false;
+    }
+    setError(null);
+    return true;
   };
 
   const handlePhotoChange = async (e) => {
@@ -354,19 +368,22 @@ const EditProfilePage = () => {
         (position) => {
           const { latitude, longitude } = position.coords;
           setGeoData({ latitude, longitude });
+          setIsGeoShared(true); // Устанавливаем состояние при успешном получении геолокации
           console.log('Геолокация успешно получена:', { latitude, longitude });
         },
         (error) => {
           const errorMessage = `Не удалось получить геолокацию: ${error.message}`;
           setGeoError(errorMessage);
-          console.error(errorMessage, error); // Логируем ошибку в консоль
+          setIsGeoShared(false); // Сбрасываем состояние при ошибке
+          console.error(errorMessage, error);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       const errorMessage = 'Геолокация не поддерживается вашим устройством.';
       setGeoError(errorMessage);
-      console.error(errorMessage); // Логируем ошибку в консоль
+      setIsGeoShared(false); // Сбрасываем состояние при неподдержке геолокации
+      console.error(errorMessage);
     }
   };
 
@@ -377,6 +394,11 @@ const EditProfilePage = () => {
     const token = sessionStorage.getItem('authToken');
     if (!token) {
       navigate('/login');
+      setIsSaving(false);
+      return;
+    }
+
+    if (formData.birthDate && !validateBirthDate(formData.birthDate)) {
       setIsSaving(false);
       return;
     }
@@ -392,9 +414,11 @@ const EditProfilePage = () => {
             }
           );
           console.log('Геолокация успешно отправлена:', geoData);
+          setIsGeoShared(true);
         } catch (geoError) {
           console.error('Ошибка при отправке геолокации:', geoError.message);
-          alert('Не удалось отправить геолокацию, но профиль будет сохранен.');
+          setIsGeoShared(false);
+          alert('Не удалось отправить геолокацию.');
         }
       }
 
@@ -404,12 +428,12 @@ const EditProfilePage = () => {
         surname: formData.surname,
         gender: formData.gender === 'М' ? 'MALE' : 'FEMALE',
         birth_date: formatDateToISO(formData.birthDate),
-        about_myself: formData.description, // Убедимся, что отправляем description как about_myself
+        about_myself: formData.description,
         jung_result: formData.personality,
         jung_last_attempt: new Date().toISOString(),
       };
 
-      console.log('Отправляем данные на сервер:', apiData); // Логирование для отладки
+      console.log('Отправляем данные на сервер:', apiData);
 
       const response = await axios.patch(
         `${process.env.REACT_APP_API_URL}/users/${userId}/profile`,
@@ -419,15 +443,15 @@ const EditProfilePage = () => {
         }
       );
 
-      console.log('Ответ сервера после PATCH:', response.data); // Логирование ответа сервера
+      console.log('Ответ сервера после PATCH:', response.data);
 
       const updatedData = {
         ...formData,
         age: updatedAge !== '' ? updatedAge : formData.age,
-        about_myself: formData.description, // Явно задаем about_myself
+        about_myself: formData.description,
       };
 
-      console.log('Сохраняем в sessionStorage:', updatedData); // Логирование данных в sessionStorage
+      console.log('Сохраняем в sessionStorage:', updatedData);
 
       sessionStorage.setItem('updatedUser', JSON.stringify(updatedData));
       navigate('/profile', { state: { updatedUser: updatedData } });
@@ -599,7 +623,8 @@ const EditProfilePage = () => {
         <div className="w-[100%] max-w-[500px] mx-auto flex flex-col gap-2 mt-4">
           <button
             onClick={handleShareGeo}
-            className="bg-blue-600 text-white px-4 py-2 border-2 border-black rounded-[15px] flex items-center gap-2"
+            className={`px-4 py-2 border-2 border-black rounded-[15px] flex items-center gap-2 text-white ${isGeoShared ? 'bg-green-600' : 'bg-blue-600'
+              }`}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -677,13 +702,19 @@ const EditProfilePage = () => {
                 name="birthDate"
                 value={formData.birthDate}
                 onChange={handleChange}
+                onBlur={() => validateBirthDate(formData.birthDate)}
                 className="w-full border-2 border-black rounded-[15px] p-2 text-black"
                 placeholder="ДД.ММ.ГГГГ"
               />
               {age && <p className="text-gray-600 text-sm mt-1">Возраст: {age} лет</p>}
             </div>
+
           </div>
+
           <div>
+            {error && (
+              <div className="w-[90%] max-w-[500px] text-red-500 text-sm mb-2">{error}</div>
+            )}
             <label className="block text-gray-600 text-sm mb-1">О себе</label>
             <textarea
               name="description"

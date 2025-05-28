@@ -31,7 +31,7 @@ function App() {
         <Route path="/search" element={<Layout> <Home /> </Layout>}/>
         <Route path="/profile" element={<Layout> <ProfilePage /> </Layout>}/>
         <Route path="/edit-profile" element={<Layout> <EditProfilePage /></Layout>}/>
-        <Route path="/swipes" element={<Layout> <SwipesPage /> </Layout>}/>
+        <Route path="/likes" element={<Layout> <SwipesPage /> </Layout>}/>
         <Route path="/code_callback" element={<CallbackPage />} />
       </Routes>
       </AuthProvider>
